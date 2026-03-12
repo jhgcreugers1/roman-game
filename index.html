@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speel als een Romein</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --stone: #d4c5a9;
+    --stone-dark: #b8a88a;
+    --stone-shadow: #8a7a62;
+    --grout: #5a5248;
+    --gold: #c8a84b;
+    --gold-light: #e8c86b;
+    --red: #8b1a1a;
+    --parchment: #f5edd8;
+    --ink: #2a1f0e;
+    --hunter: #1a1208;
+    --prey: #f0e8d0;
+    --node-r: 12;
+  }
+
+  body {
+    background: var(--ink);
+    background-image:
+      radial-gradient(ellipse at 20% 20%, #3a2510 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, #1a0f05 0%, transparent 50%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Crimson Pro', Georgia, serif;
+    color: var(--parchment);
+    padding: 20px;
+    gap: 0;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 18px;
+    animation: fadeDown 0.8s ease both;
+  }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: var(--gold-light);
+    text-shadow: 0 2px 8px rgba(200,168,75,0.4), 0 0 40px rgba(200,168,75,0.15);
+    line-height: 1.1;
+  }
+  header .subtitle {
+    font-size: 0.95rem;
+    color: var(--stone);
+    letter-spacing: 0.25em;
+    font-style: italic;
+    margin-top: 4px;
+    opacity: 0.8;
+  }
+  .ornament { color: var(--gold); font-size: 1.2rem; margin: 0 8px; }
+
+  .game-layout {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  /* ── BOARD ── */
+  .board-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #board-svg {
+    filter: drop-shadow(0 8px 32px rgba(0,0,0,0.7));
+    cursor: default;
+  }
+
+  .stone-bg {
+    fill: url(#stoneGrad);
+    rx: 12;
+    ry: 12;
+    filter: url(#stoneNoise);
+  }
+
+  /* ── PANEL ── */
+  .panel {
+    background: linear-gradient(160deg, rgba(42,31,14,0.95) 0%, rgba(26,18,8,0.98) 100%);
+    border: 1px solid rgba(200,168,75,0.25);
+    border-radius: 12px;
+    padding: 22px 22px;
+    min-width: 220px;
+    max-width: 240px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(200,168,75,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: fadeUp 0.8s 0.35s ease both;
+  }
+
+  .panel-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(200,168,75,0.2);
+    padding-bottom: 10px;
+  }
+
+  .player-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+  .player-card.active-card {
+    border-color: var(--gold);
+    background: rgba(200,168,75,0.08);
+    box-shadow: 0 0 16px rgba(200,168,75,0.15);
+  }
+  .player-card.active-card::before {
+    content: '▶';
+    position: absolute;
+    left: -16px;
+    color: var(--gold);
+    font-size: 0.7rem;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .pawn-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid var(--stone-shadow);
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  .pawn-icon.hunter-icon { background: var(--hunter); border-color: #555; }
+  .pawn-icon.prey-icon { background: var(--prey); border-color: #aaa; }
+
+  .player-info { flex: 1; }
+  .player-name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--stone);
+  }
+  .player-role {
+    font-size: 0.75rem;
+    color: var(--stone-shadow);
+    font-style: italic;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(200,168,75,0.08);
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--stone-shadow);
+    letter-spacing: 0.05em;
+  }
+  .stat-value {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    color: var(--gold-light);
+    font-weight: 600;
+  }
+
+  .status-box {
+    background: rgba(200,168,75,0.06);
+    border: 1px solid rgba(200,168,75,0.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--stone);
+    min-height: 52px;
+    transition: all 0.3s ease;
+  }
+  .status-box.highlight {
+    border-color: var(--gold);
+    color: var(--gold-light);
+    background: rgba(200,168,75,0.12);
+  }
+
+  .round-badge {
+    text-align: center;
+    padding: 6px;
+    background: rgba(139,26,26,0.15);
+    border: 1px solid rgba(139,26,26,0.3);
+    border-radius: 6px;
+  }
+  .round-badge span {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    color: #d47070;
+  }
+
+  .score-section {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .score-card {
+    flex: 1;
+    text-align: center;
+    background: rgba(200,168,75,0.05);
+    border: 1px solid rgba(200,168,75,0.12);
+    border-radius: 6px;
+    padding: 8px 4px;
+  }
+  .score-card-label {
+    font-size: 0.65rem;
+    color: var(--stone-shadow);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .score-card-val {
+    font-family: 'Cinzel', serif;
+    font-size: 1.2rem;
+    color: var(--gold-light);
+  }
+  .score-card-val.unset { color: var(--stone-shadow); font-size: 1rem; }
+
+  /* Buttons */
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+  }
+  .btn:hover { background: rgba(200,168,75,0.15); box-shadow: 0 0 12px rgba(200,168,75,0.2); }
+  .btn:active { transform: scale(0.98); }
+  .btn.btn-primary { background: var(--gold); color: var(--ink); }
+  .btn.btn-primary:hover { background: var(--gold-light); }
+  .btn.hidden { display: none; }
+
+  /* ── RULES ── */
+  .rules-toggle {
+    text-align: center;
+    margin-top: 10px;
+    animation: fadeUp 0.8s 0.5s ease both;
+  }
+  .rules-toggle button {
+    background: none; border: none; color: var(--stone-shadow);
+    font-family: 'Crimson Pro', serif; font-style: italic;
+    font-size: 0.85rem; cursor: pointer; letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+  .rules-toggle button:hover { color: var(--stone); }
+
+  .rules-box {
+    background: rgba(42,31,14,0.97);
+    border: 1px solid rgba(200,168,75,0.2);
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--stone);
+    max-width: 520px;
+    animation: fadeUp 0.4s ease both;
+    margin-top: 10px;
+  }
+  .rules-box h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .rules-box ul { padding-left: 16px; }
+  .rules-box li { margin-bottom: 4px; }
+  .rules-box.hidden { display: none; }
+
+  /* ── NODE & PAWN ANIMATIONS ── */
+  .node-hit {
+    cursor: pointer;
+    fill: transparent;
+  }
+  .pawn {
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+  .pawn:hover { filter: brightness(1.3); }
+  .pawn.selected-pawn { filter: drop-shadow(0 0 8px var(--gold)); }
+
+  @keyframes fadeDown { from { opacity:0; transform: translateY(-20px); } to { opacity:1; transform: none; } }
+  @keyframes fadeUp   { from { opacity:0; transform: translateY(20px);  } to { opacity:1; transform: none; } }
+  @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .move-flash { animation: flash 0.35s ease; }
+  @keyframes flash { 0%{opacity:0.4} 100%{opacity:1} }
+
+  /* Win overlay */
+  #win-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(10,6,2,0.88);
+    z-index: 100;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    animation: fadeUp 0.5s ease;
+  }
+  #win-overlay.show { display: flex; }
+  .win-box {
+    background: linear-gradient(160deg, #2a1f0e, #1a1208);
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 40px 50px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(200,168,75,0.3);
+    max-width: 380px;
+  }
+  .win-box h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    color: var(--gold-light);
+    margin-bottom: 8px;
+  }
+  .win-box p { color: var(--stone); font-size: 1rem; margin-bottom: 6px; line-height: 1.6; }
+  .win-box .big-num {
+    font-family: 'Cinzel', serif;
+    font-size: 3rem;
+    color: var(--gold-light);
+    display: block;
+    margin: 10px 0;
+  }
+  .win-btns { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
+  .win-btns .btn { width: auto; padding: 10px 22px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="subtitle"><span class="ornament">⚔</span> Universiteit Maastricht <span class="ornament">⚔</span></div>
+  <h1>Speel als een Romein</h1>
+</header>
+
+<div class="game-layout">
+
+  <!-- BOARD -->
+  <div class="board-wrap">
+    <svg id="board-svg" width="360" height="320" viewBox="0 0 360 320">
+      <defs>
+        <filter id="stoneNoise" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+          <feColorMatrix type="saturate" values="0.3" in="noise" result="colorNoise"/>
+          <feBlend in="SourceGraphic" in2="colorNoise" mode="multiply" result="blend"/>
+          <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+        </filter>
+        <linearGradient id="stoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#cfc0a0"/>
+          <stop offset="40%" stop-color="#d8c9a8"/>
+          <stop offset="100%" stop-color="#b8a882"/>
+        </linearGradient>
+        <radialGradient id="hunterGrad" cx="40%" cy="35%">
+          <stop offset="0%" stop-color="#3a2e20"/>
+          <stop offset="100%" stop-color="#0d0a05"/>
+        </radialGradient>
+        <radialGradient id="preyGrad" cx="40%" cy="35%">
+          <stop offset="0%" stop-color="#fffdf5"/>
+          <stop offset="100%" stop-color="#d4c89a"/>
+        </radialGradient>
+        <filter id="pawnShadow">
+          <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.5"/>
+        </filter>
+        <filter id="nodeShadow">
+          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.4"/>
+        </filter>
+        <filter id="highlight">
+          <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#c8a84b" flood-opacity="0.9"/>
+        </filter>
+      </defs>
+
+      <!-- Stone background -->
+      <rect x="10" y="10" width="340" height="300" rx="12" ry="12" class="stone-bg"/>
+      <!-- Subtle grain overlay -->
+      <rect x="10" y="10" width="340" height="300" rx="12" ry="12" fill="rgba(100,80,40,0.08)"/>
+
+      <!-- Board lines drawn by JS -->
+      <g id="lines-layer"></g>
+      <!-- Valid move indicators -->
+      <g id="hints-layer"></g>
+      <!-- Pawns -->
+      <g id="pawns-layer"></g>
+      <!-- Single transparent overlay to catch all clicks -->
+      <rect id="click-overlay" x="0" y="0" width="360" height="320" fill="transparent" style="cursor:pointer"/>
+    </svg>
+  </div>
+
+  <!-- PANEL -->
+  <div class="panel">
+    <div class="panel-title">Status</div>
+
+    <div>
+      <div id="card-hunter" class="player-card active-card">
+        <div class="pawn-icon hunter-icon"></div>
+        <div class="player-info">
+          <div class="player-name" id="hunter-name">Speler 1</div>
+          <div class="player-role">Jager (4 pionnen)</div>
+        </div>
+      </div>
+      <div style="height:8px"></div>
+      <div id="card-prey" class="player-card">
+        <div class="pawn-icon prey-icon"></div>
+        <div class="player-info">
+          <div class="player-name" id="prey-name">Speler 2</div>
+          <div class="player-role">Prooi (2 pionnen)</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="stat-row">
+        <span class="stat-label">Zetten jager</span>
+        <span class="stat-value" id="move-count">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Ingesloten</span>
+        <span class="stat-value" id="trapped-count">0 / 2</span>
+      </div>
+    </div>
+
+    <div class="status-box" id="status-box">Kies een pion van de <strong>Jager</strong> om te verplaatsen.</div>
+
+    <div class="round-badge" id="round-badge">
+      <span>RONDE 1 — Spel bezig</span>
+    </div>
+
+    <div class="score-section">
+      <div class="score-card">
+        <span class="score-card-label">Ronde 1</span>
+        <span class="score-card-val unset" id="score1">—</span>
+      </div>
+      <div class="score-card">
+        <span class="score-card-label">Ronde 2</span>
+        <span class="score-card-val unset" id="score2">—</span>
+      </div>
+    </div>
+
+    <button class="btn hidden" id="btn-switch">Rollen omdraaien →</button>
+    <button class="btn" id="btn-restart">Opnieuw beginnen</button>
+  </div>
+</div>
+
+<div class="rules-toggle">
+  <button onclick="toggleRules()">▾ Spelregels tonen</button>
+</div>
+<div class="rules-box hidden" id="rules-box">
+  <h3>Spelregels</h3>
+  <ul>
+    <li>De <strong>Jager</strong> (zwart, 4 pionnen) begint. De <strong>Prooi</strong> (wit, 2 pionnen) probeert te ontsnappen.</li>
+    <li>Spelers bewegen om de beurt één pion langs een lijn naar een aangrenzend kruispunt.</li>
+    <li>Je mag niet over een andere pion heen springen.</li>
+    <li>Pionnen mogen niet op dezelfde plek staan.</li>
+    <li>Een pion is ingesloten als hij niet meer kan bewegen.</li>
+    <li>Het spel eindigt als <em>beide</em> pionnen van de prooi zijn ingesloten.</li>
+    <li>Daarna draaien de rollen om. De jager die zijn prooi in het <em>minste</em> aantal zetten blokkeert, wint.</li>
+  </ul>
+</div>
+
+<!-- Win overlay -->
+<div id="win-overlay">
+  <div class="win-box">
+    <h2 id="win-title">Ronde voorbij!</h2>
+    <p id="win-msg"></p>
+    <span class="big-num" id="win-num"></span>
+    <p id="win-sub"></p>
+    <div class="win-btns">
+      <button class="btn btn-primary" id="win-btn-action">Rollen omdraaien</button>
+      <button class="btn" onclick="fullReset()">Nieuw spel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  BOARD — 14 nodes, exactly matching the stone board image
+//
+//  Rectangle with:
+//   - Long sides (left/right): 3 dots at 25%, 50%, 75%
+//   - Short sides (top/bottom): 2 dots at 33%, 66%
+//   - Middle divider: the two 50% dots connected horizontally
+//   - Corner cuts: each 25%/75% dot connects to nearest short-edge dot
+//     creating an octagon-like chamfered corner shape
+//
+//  Node layout (named by position):
+//
+//         tL    tR
+//    TL •──•────•──• TR
+//       |   \  /   |
+//   lT  •    \/    •  rT
+//       |    /\    |
+//   lM  •───•──•───•  rM   ← middle divider
+//       |    \/    |
+//   lB  •    /\    •  rB
+//       |   /  \   |
+//    BL •──•────•──• BR
+//         bL    bR
+//
+//  Node indices:
+//   0=TL, 1=tL, 2=tR, 3=TR   (top-left corner, top-left edge, top-right edge, top-right corner)
+//   4=lT, 5=rT                (left-top, right-top)
+//   6=lM, 7=rM                (left-mid, right-mid)  — connected = middle divider
+//   8=lB, 9=rB                (left-bottom, right-bottom)
+//   10=BL, 11=bL, 12=bR, 13=BR  (bottom-left corner, bottom-left edge, bottom-right edge, bottom-right corner)
+//
+//  Edges:
+//   Top:            0-1, 1-2, 2-3
+//   Bottom:         10-11, 11-12, 12-13
+//   Left side:      0-4, 4-6, 6-8, 8-10
+//   Right side:     3-5, 5-7, 7-9, 9-13
+//   Middle divider: 6-7
+//   Corner cuts (the diagonals — none cross each other):
+//     top-left:     1-4   (top-left-edge dot → left-top dot)
+//     top-right:    2-5   (top-right-edge dot → right-top dot)
+//     bot-left:     11-8  (bot-left-edge dot → left-bottom dot)
+//     bot-right:    12-9  (bot-right-edge dot → right-bottom dot)
+//
+//  Starting positions (from PDF):
+//   Prey (white):  0=TL, 10=BL
+//   Hunter (black): 3=TR, 5=rT, 7=rM, 13=BR  (all on right column)
+// ══════════════════════════════════════════════════════
+
+const NUM_NODES = 14;
+const W = 360, H = 320;
+
+// Board rectangle bounds
+const BX = 55, BY = 30, BW = 250, BH = 260;
+
+// Short edge dot positions (top/bottom): at 1/3 and 2/3
+const tL_x = BX + BW*(1/3), tR_x = BX + BW*(2/3);
+// Long edge dot positions (left/right): at 1/4, 1/2, 3/4
+const lT_y = BY + BH*0.25, lM_y = BY + BH*0.5, lB_y = BY + BH*0.75;
+
+const NODE_POS = [
+  { x: BX,      y: BY      },  // 0  TL corner
+  { x: tL_x,   y: BY      },  // 1  tL (top edge, left dot)
+  { x: tR_x,   y: BY      },  // 2  tR (top edge, right dot)
+  { x: BX+BW,  y: BY      },  // 3  TR corner
+  { x: BX,     y: lT_y    },  // 4  lT (left side, top dot)
+  { x: BX+BW,  y: lT_y    },  // 5  rT (right side, top dot)
+  { x: BX,     y: lM_y    },  // 6  lM (left side, mid dot)
+  { x: BX+BW,  y: lM_y    },  // 7  rM (right side, mid dot)
+  { x: BX,     y: lB_y    },  // 8  lB (left side, bottom dot)
+  { x: BX+BW,  y: lB_y    },  // 9  rB (right side, bottom dot)
+  { x: BX,     y: BY+BH   },  // 10 BL corner
+  { x: tL_x,   y: BY+BH   },  // 11 bL (bottom edge, left dot)
+  { x: tR_x,   y: BY+BH   },  // 12 bR (bottom edge, right dot)
+  { x: BX+BW,  y: BY+BH   },  // 13 BR corner
+];
+
+function nodePos(idx) { return NODE_POS[idx]; }
+
+const EDGES_RAW = [
+  // Top edge
+  [0,1], [1,2], [2,3],
+  // Bottom edge
+  [10,11], [11,12], [12,13],
+  // Left side
+  [0,4], [4,6], [6,8], [8,10],
+  // Right side
+  [3,5], [5,7], [7,9], [9,13],
+  // Middle divider
+  [6,7],
+  // Corner cut diagonals (none cross)
+  [1,4],   // top-left cut
+  [2,5],   // top-right cut
+  [8,11],  // bot-left cut
+  [9,12],  // bot-right cut
+];
+
+// Build adjacency
+const adj = {};
+for (let i=0;i<NUM_NODES;i++) adj[i]=[];
+EDGES_RAW.forEach(([a,b])=>{
+  adj[a].push(b);
+  adj[b].push(a);
+});
+
+// ══ Game State ══
+const HUNTER=0, PREY=1;
+let state = null;
+let round = 1;
+let scores = [null, null]; // moves taken as hunter in each round
+let swappedNames = false;
+
+function initState() {
+  return {
+    // Prey (white): top-left corner=0, top-right corner=3
+    // Hunter (black): all four bottom edge nodes: BL=10, bL=11, bR=12, BR=13
+    pawns: {
+      [HUNTER]: [10, 11, 12, 13],
+      [PREY]:   [0, 3],
+    },
+    turn: HUNTER,
+    moves: 0,
+    selected: null,
+    trapped: [],
+    phase: 'playing',
+  };
+}
+
+// ── SVG helpers ──
+const svg = document.getElementById('board-svg');
+const linesL = document.getElementById('lines-layer');
+const hintsL = document.getElementById('hints-layer');
+const pawnsL = document.getElementById('pawns-layer');
+
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
+function drawBoard() {
+  linesL.innerHTML='';
+  // Draw edges
+  EDGES_RAW.forEach(([a,b]) => {
+    const pa = nodePos(a), pb = nodePos(b);
+    svgEl('line', {
+      x1:pa.x, y1:pa.y, x2:pb.x, y2:pb.y,
+      stroke:'#5a5248', 'stroke-width':3,
+      'stroke-linecap':'round'
+    }, linesL);
+    svgEl('line', {
+      x1:pa.x, y1:pa.y, x2:pb.x, y2:pb.y,
+      stroke:'rgba(200,180,130,0.18)', 'stroke-width':1.2,
+      'stroke-linecap':'round'
+    }, linesL);
+  });
+
+  // Draw node intersection markers
+  for (let i=0;i<NUM_NODES;i++) {
+    const p = nodePos(i);
+    svgEl('circle',{ cx:p.x, cy:p.y, r:8, fill:'#6b5f4e', filter:'url(#nodeShadow)' }, linesL);
+    svgEl('circle',{ cx:p.x, cy:p.y, r:6, fill:'#8a7a62' }, linesL);
+    svgEl('circle',{ cx:p.x-1.5, cy:p.y-1.5, r:2.5, fill:'rgba(220,200,160,0.35)' }, linesL);
+  }
+}
+
+// Single overlay click handler — figures out what was clicked by proximity
+function getSVGPoint(evt) {
+  const rect = svg.getBoundingClientRect();
+  const scaleX = 360 / rect.width;
+  const scaleY = 320 / rect.height;
+  return {
+    x: (evt.clientX - rect.left) * scaleX,
+    y: (evt.clientY - rect.top)  * scaleY,
+  };
+}
+
+function nearestNode(px, py) {
+  let best = -1, bestDist = Infinity;
+  for (let i=0;i<NUM_NODES;i++) {
+    const p = nodePos(i);
+    const d = Math.hypot(px - p.x, py - p.y);
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return bestDist < 38 ? best : -1;
+}
+
+function nearestPawn(px, py) {
+  // Returns {role, pawnIdx} or null
+  const s = state;
+  if (!s) return null;
+  let best = null, bestDist = Infinity;
+  for (const role of [HUNTER, PREY]) {
+    s.pawns[role].forEach((nodeId, pawnIdx) => {
+      const p = nodePos(nodeId);
+      const d = Math.hypot(px - p.x, py - p.y);
+      if (d < bestDist) { bestDist = d; best = {role, pawnIdx}; }
+    });
+  }
+  return bestDist < 22 ? best : null;
+}
+
+document.getElementById('click-overlay').addEventListener('click', evt => {
+  if (!state || state.phase !== 'playing') return;
+  const {x, y} = getSVGPoint(evt);
+
+  // Check if clicking on a pawn first
+  const pawn = nearestPawn(x, y);
+  if (pawn) {
+    onPawnClick(pawn.role, pawn.pawnIdx);
+    return;
+  }
+
+  // Otherwise check for node click (move destination)
+  const node = nearestNode(x, y);
+  if (node >= 0) {
+    onNodeClick(node);
+  }
+});
+
+function renderPawns() {
+  pawnsL.innerHTML='';
+  hintsL.innerHTML='';
+
+  const s = state;
+  const allOccupied = new Set([...s.pawns[HUNTER], ...s.pawns[PREY]]);
+
+  // Show valid move hints
+  if (s.selected !== null) {
+    const {role, pawnIdx} = s.selected;
+    const nodeId = s.pawns[role][pawnIdx];
+    const moves = getValidMoves(nodeId, allOccupied);
+    moves.forEach(m => {
+      const p = nodePos(m);
+      svgEl('circle',{ cx:p.x, cy:p.y, r:13,
+        fill:'rgba(200,168,75,0.25)', stroke:'#c8a84b',
+        'stroke-width':1.5, 'stroke-dasharray':'4,3' }, hintsL);
+    });
+  }
+
+  // Draw hunter pawns
+  s.pawns[HUNTER].forEach((nodeId, pawnIdx) => {
+    const p = nodePos(nodeId);
+    const isSelected = s.selected && s.selected.role===HUNTER && s.selected.pawnIdx===pawnIdx;
+    const g = svgEl('g',{ filter: isSelected ? 'url(#highlight)' : 'url(#pawnShadow)' }, pawnsL);
+    svgEl('circle',{ cx:p.x, cy:p.y, r:15, fill:'url(#hunterGrad)', stroke: isSelected ? '#c8a84b' : '#444', 'stroke-width': isSelected ? 2.5 : 1.5 }, g);
+    svgEl('circle',{ cx:p.x-3, cy:p.y-4, r:5, fill:'rgba(255,255,255,0.06)' }, g);
+  });
+
+  // Draw prey pawns
+  s.pawns[PREY].forEach((nodeId, pawnIdx) => {
+    const p = nodePos(nodeId);
+    const isSelected = s.selected && s.selected.role===PREY && s.selected.pawnIdx===pawnIdx;
+    const isTrapped = s.trapped.includes(pawnIdx);
+    const g = svgEl('g',{ filter: isSelected ? 'url(#highlight)' : 'url(#pawnShadow)' }, pawnsL);
+    svgEl('circle',{ cx:p.x, cy:p.y, r:15, fill: isTrapped ? '#888' : 'url(#preyGrad)',
+      stroke: isSelected ? '#c8a84b' : isTrapped ? '#666' : '#aaa',
+      'stroke-width': isSelected ? 2.5 : 1.5, opacity: isTrapped ? 0.6 : 1 }, g);
+    svgEl('circle',{ cx:p.x-3, cy:p.y-4, r:5, fill:'rgba(255,255,255,0.35)' }, g);
+    if (isTrapped) {
+      svgEl('line',{ x1:p.x-6,y1:p.y-6, x2:p.x+6,y2:p.y+6, stroke:'#555','stroke-width':2,'stroke-linecap':'round' },g);
+      svgEl('line',{ x1:p.x+6,y1:p.y-6, x2:p.x-6,y2:p.y+6, stroke:'#555','stroke-width':2,'stroke-linecap':'round' },g);
+    }
+  });
+}
+
+function getValidMoves(nodeId, occupied) {
+  return adj[nodeId].filter(n => !occupied.has(n));
+}
+
+// ── Interaction ──
+function onPawnClick(role, pawnIdx) {
+  const s = state;
+  if (s.phase !== 'playing') return;
+
+  if (s.turn === HUNTER && role === HUNTER) {
+    s.selected = { role, pawnIdx };
+    setStatus(`Pion geselecteerd. Kies een kruispunt om naartoe te bewegen.`);
+    renderPawns();
+  } else if (s.turn === PREY && role === PREY) {
+    if (s.trapped.includes(pawnIdx)) {
+      setStatus('Deze pion is ingesloten en kan niet bewegen.');
+      return;
+    }
+    s.selected = { role, pawnIdx };
+    setStatus(`Pion geselecteerd. Kies een kruispunt om naartoe te bewegen.`);
+    renderPawns();
+  } else if (s.selected && s.selected.role === role) {
+    // deselect / switch pawn
+    if (s.selected.pawnIdx === pawnIdx) { s.selected = null; }
+    else { s.selected = { role, pawnIdx }; }
+    setStatus(turnPrompt());
+    renderPawns();
+  }
+}
+
+function onNodeClick(nodeId) {
+  const s = state;
+  if (s.phase !== 'playing') return;
+  if (s.selected === null) return;
+
+  const {role, pawnIdx} = s.selected;
+  const fromNode = s.pawns[role][pawnIdx];
+  const allOccupied = new Set([...s.pawns[HUNTER], ...s.pawns[PREY]]);
+  const validMoves = getValidMoves(fromNode, allOccupied);
+
+  if (!validMoves.includes(nodeId)) return;
+
+  // Execute move
+  s.pawns[role][pawnIdx] = nodeId;
+  s.selected = null;
+
+  if (role === HUNTER) {
+    s.moves++;
+    document.getElementById('move-count').textContent = s.moves;
+  }
+
+  // Check for newly trapped prey
+  checkTrapped();
+
+  // Check win condition
+  if (s.trapped.length === 2) {
+    roundOver();
+    return;
+  }
+
+  // Switch turn
+  s.turn = (s.turn === HUNTER) ? PREY : HUNTER;
+
+  // If new current player has no moves at all (all prey trapped or no valid prey moves), skip or end
+  if (s.turn === PREY) {
+    const freePreyMoves = s.pawns[PREY].some((n, pi) => {
+      if (s.trapped.includes(pi)) return false;
+      const occ = new Set([...s.pawns[HUNTER], ...s.pawns[PREY]]);
+      return adj[n].some(nb => !occ.has(nb));
+    });
+    if (!freePreyMoves) {
+      // All prey truly stuck — skip prey turn
+      s.turn = HUNTER;
+    }
+  }
+
+  setStatus(turnPrompt());
+  updateUI();
+  renderPawns();
+}
+
+function checkTrapped() {
+  const s = state;
+  const allOccupied = new Set([...s.pawns[HUNTER], ...s.pawns[PREY]]);
+  s.trapped = [];
+  s.pawns[PREY].forEach((n, pi) => {
+    const moves = adj[n].filter(nb => !allOccupied.has(nb));
+    if (moves.length === 0) s.trapped.push(pi);
+  });
+  document.getElementById('trapped-count').textContent = `${s.trapped.length} / 2`;
+}
+
+function turnPrompt() {
+  const s = state;
+  const isHunterTurn = s.turn === HUNTER;
+  const name = isHunterTurn ? document.getElementById('hunter-name').textContent
+                             : document.getElementById('prey-name').textContent;
+  const role = isHunterTurn ? 'Jager' : 'Prooi';
+  return `<strong>${name}</strong> (${role}) is aan de beurt. Kies een pion.`;
+}
+
+function setStatus(html, highlight=false) {
+  const box = document.getElementById('status-box');
+  box.innerHTML = html;
+  box.className = 'status-box' + (highlight ? ' highlight' : '');
+}
+
+function updateUI() {
+  const s = state;
+  document.getElementById('card-hunter').className = 'player-card' + (s.turn===HUNTER ? ' active-card' : '');
+  document.getElementById('card-prey').className   = 'player-card' + (s.turn===PREY   ? ' active-card' : '');
+}
+
+function roundOver() {
+  const s = state;
+  s.phase = 'round-over';
+  scores[round-1] = s.moves;
+
+  document.getElementById('btn-switch').classList.remove('hidden');
+
+  // Update score display
+  document.getElementById('score1').textContent = scores[0] !== null ? scores[0] : '—';
+  document.getElementById('score1').className = 'score-card-val' + (scores[0]===null?' unset':'');
+  document.getElementById('score2').textContent = scores[1] !== null ? scores[1] : '—';
+  document.getElementById('score2').className = 'score-card-val' + (scores[1]===null?' unset':'');
+
+  // Show overlay
+  const overlay = document.getElementById('win-overlay');
+  overlay.classList.add('show');
+  document.getElementById('win-title').textContent = `Ronde ${round} voorbij!`;
+  document.getElementById('win-num').textContent = s.moves;
+
+  if (round === 1) {
+    document.getElementById('win-msg').textContent = 'De jager sloot de prooi in in:';
+    document.getElementById('win-sub').textContent = 'Zetten. Draai nu de rollen om voor ronde 2!';
+    document.getElementById('win-btn-action').textContent = 'Rollen omdraaien →';
+    document.getElementById('win-btn-action').onclick = switchRoles;
+  } else {
+    // Both rounds done — determine winner
+    const s1 = scores[0], s2 = scores[1];
+    if (s1 < s2) {
+      document.getElementById('win-msg').textContent = `${document.getElementById('hunter-name').textContent} won ronde 1 als jager in ${s1} zetten. ${document.getElementById('prey-name').textContent} had ${s2} zetten nodig.`;
+      document.getElementById('win-sub').textContent = `🏆 ${getOriginalHunterName()} wint het spel!`;
+    } else if (s2 < s1) {
+      document.getElementById('win-msg').textContent = `Ronde 2 jager won in ${s2} zetten vs. ${s1} in ronde 1.`;
+      document.getElementById('win-sub').textContent = `🏆 ${document.getElementById('hunter-name').textContent} wint het spel!`;
+    } else {
+      document.getElementById('win-msg').textContent = `Gelijkspel! Beide jagers gebruikten ${s1} zetten.`;
+      document.getElementById('win-sub').textContent = 'Speel opnieuw om de winnaar te bepalen!';
+    }
+    document.getElementById('win-title').textContent = 'Spel Afgelopen!';
+    document.getElementById('win-num').textContent = `${scores[0]} vs ${scores[1]}`;
+    document.getElementById('win-btn-action').textContent = 'Nieuw spel';
+    document.getElementById('win-btn-action').onclick = fullReset;
+  }
+
+  document.getElementById('round-badge').innerHTML = `<span>RONDE ${round} — Prooi ingesloten in ${s.moves} zetten</span>`;
+}
+
+let originalHunterName = '';
+function getOriginalHunterName() { return originalHunterName || 'Speler 1'; }
+
+function switchRoles() {
+  document.getElementById('win-overlay').classList.remove('show');
+  round = 2;
+  document.getElementById('round-badge').innerHTML = `<span>RONDE 2 — Spel bezig</span>`;
+  document.getElementById('btn-switch').classList.add('hidden');
+
+  // Swap names
+  const h = document.getElementById('hunter-name');
+  const p = document.getElementById('prey-name');
+  const tmp = h.textContent; h.textContent = p.textContent; p.textContent = tmp;
+
+  state = initState();
+  setStatus(turnPrompt());
+  updateUI();
+  renderPawns();
+}
+
+function fullReset() {
+  document.getElementById('win-overlay').classList.remove('show');
+  round = 1;
+  scores = [null, null];
+  document.getElementById('score1').textContent = '—';
+  document.getElementById('score1').className = 'score-card-val unset';
+  document.getElementById('score2').textContent = '—';
+  document.getElementById('score2').className = 'score-card-val unset';
+  document.getElementById('hunter-name').textContent = 'Speler 1';
+  document.getElementById('prey-name').textContent = 'Speler 2';
+  document.getElementById('round-badge').innerHTML = `<span>RONDE 1 — Spel bezig</span>`;
+  document.getElementById('btn-switch').classList.add('hidden');
+  document.getElementById('move-count').textContent = '0';
+  document.getElementById('trapped-count').textContent = '0 / 2';
+
+  state = initState();
+  setStatus(turnPrompt());
+  updateUI();
+  renderPawns();
+}
+
+document.getElementById('btn-restart').addEventListener('click', fullReset);
+document.getElementById('btn-switch').addEventListener('click', () => {
+  if (state.phase === 'round-over') switchRoles();
+});
+
+function toggleRules() {
+  document.getElementById('rules-box').classList.toggle('hidden');
+}
+
+// ── Init ──
+originalHunterName = 'Speler 1';
+drawBoard();
+state = initState();
+checkTrapped();
+setStatus(turnPrompt());
+updateUI();
+renderPawns();
+</script>
+</body>
+</html>
