@@ -2,7 +2,7 @@
 
 An interactive browser implementation of an ancient Roman board game, based on a ruleset published by **Universiteit Maastricht** (Faculty of Science and Engineering) in collaboration with Universiteit Leiden, Het Romeins Museum, and Restauratieatelier Restaura.
 
-Play it here: **[yourusername.github.io/roman-game](https://yourusername.github.io/roman-game)**
+Play it here: **[jhgcreugers1.github.io/roman-game](https://jhgcreugers1.github.io/roman-game)**
 
 ---
 
